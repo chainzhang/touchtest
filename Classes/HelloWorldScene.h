@@ -18,10 +18,18 @@ public:
     CREATE_FUNC(HelloWorld);
     
     void Tap(float delta);
+    void TwoFingerTap(float delta);
     
 private:
     float _timer;
+    float _timer2;
     float _touchTime;
+    int _swipe_type;
+    int _touch_type;
+    
+    int _num_touches;
+    
+    cocos2d::Vec2 _touch_start;
 };
 
 #endif // __HELLOWORLD_SCENE_H__
