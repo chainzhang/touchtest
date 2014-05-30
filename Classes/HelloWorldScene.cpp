@@ -2,6 +2,16 @@
 
 USING_NS_CC;
 
+//使おうかなと思ったけど、また今度考えよう。
+enum TouchType{
+    TOUCH_TAP,
+    TOUCH_DOUBLE_TAP,
+    TOUCH_SWIPE,
+    TOUCH_2_FINGER_TAP,
+    TOUCH_2_FINGER_DOUBLE_TAP,
+    TOUCH_2_FINGER_SWIPE
+};
+
 Scene* HelloWorld::createScene()
 {
     // 'scene' is an autorelease object
@@ -27,42 +37,82 @@ bool HelloWorld::init()
         return false;
     }
     
-    Size visibleSize = Director::getInstance()->getVisibleSize();
-    Vec2 origin = Director::getInstance()->getVisibleOrigin();
-
     auto listener = EventListenerTouchAllAtOnce::create();
     listener->setEnabled(true);
     
     listener->onTouchesBegan = [this](std::vector<Touch*> touches, Event *event){
+        //タッチが2カ所を検知されたら
         if (touches.size() == 2){
-            CCLOG("You just Touched by using 2 fingers");
+            _touch_type = TOUCH_2_FINGER_TAP;
         }
         
+        //タッチが1カ所しかなかったら
         if (touches.size() == 1){
-            CCLOG("Timer : %f", _timer);
+            
+            // ここはそこしハックになるが、タッチ1カ所しか検出されなくても、
+            // 実際ユーザーが指二本でタッチしようとしても、微妙なずれがあるので、
+            // 許容範囲内なら二本指タッチとします
             if (_touchTime != 0.0f &&
-                _timer - _touchTime < 0.3f) {
-                if (_timer - _touchTime < 0.05f) {
-                    CCLOG("You just Touched by using 2 fingers");
-                    _touchTime = 0.0f;
-                    return;
-                }
-                this->unschedule(schedule_selector(HelloWorld::Tap));
-                CCLOG("You just did a double touch");
-                _touchTime = 0.0f;
-            } else {
-                _touchTime = _timer;
-                this->scheduleOnce(schedule_selector(HelloWorld::Tap), .2f);
+                _timer2 - _touchTime < 0.05f) {
+                _touch_type = TOUCH_2_FINGER_TAP;
+                return;
             }
+            
+            _touch_type = TOUCH_TAP;
         }
+        //タッチ数を保存する、これはダブルタップ判定に使う。
+        _num_touches += 1;
+        _touchTime = _timer2;
     };
     
-    listener->onTouchesMoved = [](std::vector<Touch*> touches, Event *event){
-        //CCLOG("Touch Num When Move: %lu", touches.size());
+    listener->onTouchesMoved = [this](std::vector<Touch*> touches, Event *event){
+        _swipe_type = 0;
+        //移動したら、スワイプとします。
+        if (touches.front()->getLocation().x - touches.front()->getPreviousLocation().x > 10.0f)
+        {
+            _swipe_type = 1;
+        }
     };
 
-    listener->onTouchesEnded = [](std::vector<Touch*> touches, Event *event){
+    listener->onTouchesEnded = [this](std::vector<Touch*> touches, Event *event){
         //CCLOG("Touch Num When Touch End: %lu", touches.size());
+        if (_touch_type == TOUCH_2_FINGER_TAP) {
+            if (_swipe_type != 1) {
+                this->unschedule(schedule_selector(HelloWorld::TwoFingerTap));
+                // タイマーをクリア
+                if (_num_touches >= 2) {
+                    CCLOG("2 finger double touch");
+                    
+                    //タッチ数とタッチ時間をリセット。
+                    _num_touches = 0;
+                    _touchTime = 0;
+                    
+                } else {
+                    this->scheduleOnce(schedule_selector(HelloWorld::TwoFingerTap), .2f);
+                    //タップした場合は、0.2秒の遅延を設定。もし次のタップが0.2秒の間に発生したら、
+                    //このタイマーが消される
+                }
+            } else {
+                CCLOG("2 finger swipe");
+            }
+        }
+        
+        if (_touch_type == TOUCH_TAP) {
+            if (_swipe_type != 1) {
+                this->unschedule(schedule_selector(HelloWorld::Tap));
+                if (_num_touches >= 2) {
+                    CCLOG("double tap");
+                    _num_touches = 0;
+                    _touchTime = 0;
+                } else {
+                    this->scheduleOnce(schedule_selector(HelloWorld::Tap), .2f);
+                }
+            } else {
+                CCLOG("swipe");
+            }
+        }
+        _swipe_type = 0;
+        _timer = 0;
     };
 
     
@@ -75,13 +125,23 @@ bool HelloWorld::init()
 
 void HelloWorld::update(float delta)
 {
+    _timer2 += delta;
     _timer += delta;
+    if (_timer > 0.5f) {
+        _num_touches = 0;
+        _timer = 0;
+    }
 }
 
 void HelloWorld::Tap(float delta)
 {
-    if (_touchTime == 0.0f) return;
-    CCLOG("You just tap");
+    CCLOG("tap");
+    _touchTime = 0.0f;
+}
+
+void HelloWorld::TwoFingerTap(float delta)
+{
+    CCLOG("2 finger tap");
     _touchTime = 0.0f;
 }
 
