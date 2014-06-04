@@ -53,12 +53,11 @@ bool HelloWorld::init()
             // 実際ユーザーが指二本でタッチしようとしても、微妙なずれがあるので、
             // 許容範囲内なら二本指タッチとします
             if (_touchTime != 0.0f &&
-                _timer2 - _touchTime < 0.05f) {
+                _timer2 - _touchTime < 0.01f) {
                 _touch_type = TOUCH_2_FINGER_TAP;
-                return;
+            } else {
+                _touch_type = TOUCH_TAP;
             }
-            
-            _touch_type = TOUCH_TAP;
         }
         //タッチ数を保存する、これはダブルタップ判定に使う。
         _num_touches += 1;
@@ -76,6 +75,8 @@ bool HelloWorld::init()
 
     listener->onTouchesEnded = [this](std::vector<Touch*> touches, Event *event){
         //CCLOG("Touch Num When Touch End: %lu", touches.size());
+        CCLOG("%f", _timer);
+        if (_timer < 0.02) return;
         if (_touch_type == TOUCH_2_FINGER_TAP) {
             if (_swipe_type != 1) {
                 this->unschedule(schedule_selector(HelloWorld::TwoFingerTap));
@@ -94,6 +95,7 @@ bool HelloWorld::init()
                 }
             } else {
                 CCLOG("2 finger swipe");
+                this->unschedule(schedule_selector(HelloWorld::TwoFingerTap));
             }
         }
         
